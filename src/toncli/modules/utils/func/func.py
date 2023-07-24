@@ -13,7 +13,10 @@ from toncli.modules.utils.system.log import logger
 from toncli.modules.utils.system.project import check_for_needed_files_to_deploy
 from toncli.modules.utils.func.commands import build as fift_build, build_files
 from toncli.modules.utils.system.conf import executable, getcwd
-from toncli.modules.utils.fift.commands import fift_execute_command
+from toncli.modules.utils.fift.commands import fift_execute_command, contract_manipulation
+# from toncli.modules.abstract.deployer import AbstractDeployer
+from toncli.modules.utils.system.project_conf import ProjectConf
+from toncli.modules.utils.system.project import migrate_project_struction
 
 bl = Fore.CYAN
 rd = Fore.RED
@@ -24,6 +27,13 @@ rs = Style.RESET_ALL
 class Func:
     def __init__(self, command: Optional[str] = None, args: Optional[List[str]] = None, kwargs: Optional[dict] = None):
         self.command = command
+        self.project_root: str = getcwd()
+        if os.path.exists(os.path.abspath(f"{self.project_root}/func/files.yaml")):
+            migrate_project_struction('0.0.14', self.project_root)
+
+        self.project_config = ProjectConf(self.project_root)
+        self.workchain: int = 0
+        self.data_params: list = []
 
         if kwargs:
             self.kwargs = kwargs
@@ -70,6 +80,29 @@ class Func:
             self.args = list(map(lambda file: os.path.abspath(f"{getcwd()}/{file}"), self.args))
 
             build_files(self.args, to_save_location, self.kwargs['func_args'], cwd=getcwd())
+
+            contracts = []
+
+            # if contracts is not None and len(contracts) > 0:
+            #     real_contracts = []
+            #
+            #     for item in contracts:
+            #         for config in self.project_config.contracts:
+            #             if config.name == item:
+            #                 real_contracts.append(config)
+            # else:
+            real_contracts = self.project_config.contracts
+            for contract in real_contracts:
+                contract_manipulation(os.path.abspath(contract.to_save_location),
+                                      os.path.abspath(contract.data),
+                                      self.workchain,
+                                      os.path.abspath(contract.boc),
+                                      os.path.abspath(contract.address),
+                                      cwd=self.project_root,
+                                      data_params=self.data_params)
+            logger.info(f"🌲 BOC created")
+
+
 
         else:
             if not self.project_dir:
